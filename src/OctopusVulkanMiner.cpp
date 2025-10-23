@@ -1,7 +1,9 @@
-#include "OctopusVulkanMiner.h"
+#include "OctopusVulkanMiner.hpp"
 #include "StratumClient.h"
-#include "cuda/octopus.cuh"
-#include "cuda/precomputation.h"
+#if 0
+#include "vulkan/octopus.cuh"
+#endif
+#include "vulkan/precomputation.h"
 #include "hex.h"
 #include "light.h"
 #include "octopus_params.h"
@@ -9,7 +11,7 @@
 
 #include <functional>
 #include <iostream>
-
+/*
 #define checkCudaErrors(call)                                                  \
   do {                                                                         \
     cudaError_t err = call;                                                    \
@@ -19,6 +21,8 @@
       abort();                                                                 \
     }                                                                          \
   } while (0)
+*/
+tart::Instance gTartInstance();
 
 class VulkanDagManager {
 public:
@@ -78,33 +82,47 @@ public:
   size_t dagSize;
 
 private:
+#if 1
+	tart::buffer_ptr h_dag = nullptr;
+#else
   void *h_dag = 0;
-
+#endif
   size_t memoryDagSize = 0;
   size_t memoryLightSize = 0;
 };
 
 OctopusVulkanMiner::ThreadContext::ThreadContext(OctopusVulkanMiner *miner_,
                                                int device_id_, int context_id_)
-    : miner(miner_), device_id(device_id_), context_id(context_id_),
-      dagManager(new VulkanDagManager()) {}
+    : miner(miner_), device_id(device_id_), context_id(context_id_)
+      
+{
+	dagManager = std::make_shared<VulkanDagManager>();
+}
 
 OctopusVulkanMiner::OctopusVulkanMiner(const OctopusVulkanMinerSettings &settings)
     : AbstractMiner(), settings(settings) {
-  int device_count;
-  checkCudaErrors(cudaGetDeviceCount(&device_count));
+	
+#if 1
+	int device_count = (int)gTartInstance.getNumDevices();
+#else
+	int device_count;
+	checkCudaErrors(cudaGetDeviceCount(&device_count));
+#endif
+	int context_id = 0;
 
-  int context_id = 0;
-
-  for (int device_id : settings.device_ids) {
-    if (device_id < device_count) {
-      device_ids.push_back(device_id);
-      threadContexts.emplace_back(this, device_id, context_id++);
-    } else {
-      std::cerr << "Vulkan device_id = " << device_id << " does not exist."
-                << std::endl;
-    }
-  }
+	for (int device_id : settings.device_ids)
+	{
+		if (device_id < device_count)
+		{
+			device_ids.push_back(device_id);
+			threadContexts.emplace_back(this, device_id, context_id++);
+		}
+		else
+		{
+			std::cerr << "Vulkan device_id = " << device_id << " does not exist."
+				<< std::endl;
+		}
+	}
 
   if (device_ids.empty()) {
     abort();
@@ -112,6 +130,11 @@ OctopusVulkanMiner::OctopusVulkanMiner(const OctopusVulkanMinerSettings &setting
 }
 
 OctopusVulkanMiner::~OctopusVulkanMiner() {}
+
+std::shared_ptr<OctopusVulkanMiner> OctopusVulkanMiner::getThis()
+{
+	return std::shared_from_this();
+}
 
 void OctopusVulkanMiner::Start() {
   workerThreads = std::make_unique<boost::thread_group>();

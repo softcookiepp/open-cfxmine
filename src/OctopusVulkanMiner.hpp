@@ -5,10 +5,13 @@
 #include <cstdint>
 #include <memory>
 
-#include <tart.hpp>
+#include "tart.hpp"
 
 #include "AbstractMiner.h"
 #include "octopus_params.h"
+
+// global instance used for the entire application
+extern tart::Instance gTartInstance();
 
 class StratumClient;
 
@@ -20,14 +23,16 @@ struct OctopusVulkanMinerSettings {
 
 class VulkanDagManager;
 
-class OctopusVulkanMiner : public AbstractMiner {
+class OctopusVulkanMiner : public AbstractMiner, std::enable_shared_from_this<OctopusVulkanMiner>
+{
 protected:
   struct ThreadContext {
     OctopusVulkanMiner *miner;
     int device_id;
     int context_id;
-
-    VulkanDagManager *dagManager;
+	
+	// doing shared instead of unique for now because of incomplete type
+    std::shared_ptr<VulkanDagManager> dagManager = nullptr;
 
     void *d_search_results;
 
@@ -52,6 +57,8 @@ private:
   void Work(ThreadContext *ctx);
 
   std::unique_ptr<boost::thread_group> workerThreads;
+  
+  std::shared_ptr<OctopusVulkanMiner> getThis();
 
   const OctopusVulkanMinerSettings settings;
 

@@ -2,6 +2,7 @@
 #if 0
 #include "OctopusCUDAMiner.h"
 #endif
+#include "OctopusVulkanMiner.hpp"
 #include "StratumClient.h"
 #include "cxxopts.hpp"
 #include <chrono>

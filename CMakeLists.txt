@@ -14,9 +14,10 @@ set(Boost_USE_STATIC_LIBS ON)
 # set(Boost_DEBUG ON)
 find_package(Boost 1.65.1 REQUIRED COMPONENTS chrono regex system thread)
 
-add_subdirectory(${THIRDPARTY_SOURCE_DIR}/jsoncpp)
 set(JSONCPP_WITH_TESTS OFF CACHE BOOL "Force option off" FORCE)
 set(JSONCPP_WITH_POST_BUILD_UNITTEST OFF CACHE BOOL "Force option off" FORCE)
+add_subdirectory(${THIRDPARTY_SOURCE_DIR}/jsoncpp)
+add_subdirectory(${THIRDPARTY_SOURCE_DIR}/tart)
 
 add_executable(cfxmine
   src/main.cc
@@ -24,6 +25,7 @@ add_executable(cfxmine
   src/light.cc
   src/sha3.cc
   src/OctopusCPUMiner.cc
+  src/OctopusVulkanMiner.cpp
   #src/OctopusCUDAMiner.cu
 )
 
@@ -46,6 +48,7 @@ target_link_libraries(
   Boost::thread
   Boost::regex
   Boost::chrono
+  tart
   #CUDA::cudart_static
   jsoncpp_lib
   #jsoncpp
