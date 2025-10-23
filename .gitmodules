@@ -1,6 +1,3 @@
 [submodule "third-party/jsoncpp"]
 	path = third-party/jsoncpp
 	url = https://github.com/open-source-parsers/jsoncpp.git
-[submodule "third-party/tart"]
-	path = third-party/tart
-	url = https://codeberg.org/softcookiepp/tart.git
