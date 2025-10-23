@@ -1,10 +1,13 @@
 #include "OctopusCPUMiner.h"
+#if 0
 #include "OctopusCUDAMiner.h"
+#endif
 #include "StratumClient.h"
 #include "cxxopts.hpp"
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <string>
 
 static void WatchDogThread(std::shared_ptr<StratumClient> client,
                            std::string address, int port) {
@@ -46,18 +49,29 @@ int main(int argc, char *argv[]) {
   int retry;
   int nthreads;
   bool use_gpu;
+#if 0
   OctopusCUDAMinerSettings cuda_miner_settings;
+#endif
   try {
     cxxopts::ParseResult parsed_args = options.parse(argc, argv);
-    address = parsed_args["addr"].as<std::string>();
-    port = parsed_args["port"].as<int>();
-    agent_name = parsed_args["name"].as<std::string>();
-    retry = parsed_args["retry"].as<int>();
-    nthreads = parsed_args["threads"].as<int>();
-    use_gpu = parsed_args["gpu"].as<bool>();
+    std::string tmp("addr");
+    address = parsed_args[tmp].as<std::string>();
+    tmp = "port";
+    port = parsed_args[tmp].as<int>();
+    tmp = "name";
+    agent_name = parsed_args[tmp].as<std::string>();
+    tmp = "retry";
+    retry = parsed_args[tmp].as<int>();
+    nthreads = parsed_args[std::string("threads")].as<int>();
+#if 1
+	use_gpu = false;
+#else
+    use_gpu = parsed_args[std::string("gpu")].as<bool>();
+
     cuda_miner_settings.device_ids =
         parsed_args["device_ids"].as<std::vector<int>>();
-    if (parsed_args.count("help") != 0) {
+#endif
+    if (parsed_args.count(std::string("help")) != 0) {
       std::cerr << options.help();
       return 0;
     }
@@ -70,7 +84,9 @@ int main(int argc, char *argv[]) {
   std::shared_ptr<AbstractMiner> miner;
   if (use_gpu) {
     std::cerr << "Using GPU." << std::endl;
-    miner = std::make_shared<OctopusCUDAMiner>(cuda_miner_settings);
+#if 0
+	miner = std::make_shared<OctopusCUDAMiner>(cuda_miner_settings);
+#endif
   } else {
     miner = std::make_shared<OctopusCPUMiner>(nthreads);
   }

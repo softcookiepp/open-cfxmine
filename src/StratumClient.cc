@@ -208,10 +208,11 @@ bool StratumClient::StartSubscribe(const std::string &address, const int port) {
     std::cout << "Trying to connect to the server " << address << ":" << port
               << "\n";
     try {
-      this->ioService = std::make_unique<boost::asio::io_service>();
+      this->ioService = std::make_unique<boost::asio::io_context>();
       this->client_socket = std::make_unique<tcp::socket>(*this->ioService);
       this->client_socket->connect(
-          tcp::endpoint(address::from_string(address), port));
+          tcp::endpoint(boost::asio::ip::make_address(address), port) );
+          //tcp::endpoint(address::from_string(address), port));
       Json::Value subJson;
       subJson["jsonrpc"] = "2.0";
       subJson["method"] = "mining.subscribe";
@@ -230,7 +231,8 @@ bool StratumClient::StartSubscribe(const std::string &address, const int port) {
         }
       }
       this->ioWork =
-          std::make_unique<boost::asio::io_service::work>(*this->ioService);
+          std::make_unique<boost::asio::io_context::executor_type>(this->ioService->get_executor());
+          //std::make_unique<boost::asio::io_context::executor_type>(*this->ioService);
       this->jsonId.store(2, std::memory_order_relaxed);
 
       this->workerThread = std::make_unique<boost::thread>(
@@ -250,7 +252,11 @@ bool StratumClient::StartSubscribe(const std::string &address, const int port) {
 
 void StratumClient::OnSolutionFound(const std::vector<std::string> &solutions) {
   if (this->running == StratumConnected) {
+#if 1
+	boost::asio::post(*this->ioService,
+#else
     this->ioService->post(
+#endif
         std::bind(&StratumClient::SubmitJobAsync, this, solutions));
   } else {
     std::cout << "Stratum is not connected! One solution discarded!\n";
@@ -258,7 +264,11 @@ void StratumClient::OnSolutionFound(const std::vector<std::string> &solutions) {
 }
 
 void StratumClient::UpdateHashRate(size_t nonce_count) {
+#if 1
+  boost::asio::post(*this->ioService,
+#else
   this->ioService->post(
+#endif
       std::bind(&StratumClient::UpdateHashRateAsync, this, nonce_count));
 }
 

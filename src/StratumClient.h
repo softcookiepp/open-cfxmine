@@ -38,9 +38,9 @@ private:
 
   std::string name;
   std::shared_ptr<AbstractMiner> miner;
-  std::unique_ptr<boost::asio::io_service> ioService;
+  std::unique_ptr<boost::asio::io_context> ioService;
   boost::asio::streambuf stream_buf;
-  std::unique_ptr<boost::asio::io_service::work> ioWork;
+  std::unique_ptr<boost::asio::io_context::executor_type> ioWork;
   ConnectionStatus running;
   std::atomic<uint64_t> jsonId;
   std::unique_ptr<boost::thread> workerThread;
