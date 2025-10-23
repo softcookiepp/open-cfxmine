@@ -1,0 +1,67 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Google Clspv; 0
+; Bound: 43
+; Schema: 0
+               OpCapability Shader
+               OpExtension "SPV_KHR_storage_buffer_storage_class"
+               OpExtension "SPV_KHR_non_semantic_info"
+
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %19 "main" %gl_GlobalInvocationID
+				
+				; global invocation id
+               OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId 
+               
+               ; workgroup size
+               OpDecorate %gl_WorkGroupSize BuiltIn WorkgroupSize
+               
+               ; idk
+               OpDecorate %_runtimearr_float ArrayStride 4
+               OpMemberDecorate %_struct_13 0 Offset 0
+               OpDecorate %_struct_13 Block
+               OpDecorate %15 DescriptorSet 0
+               OpDecorate %15 Binding 0
+               OpDecorate %16 DescriptorSet 0
+               OpDecorate %16 Binding 1
+               OpDecorate %28 NoContraction
+               OpDecorate %5 SpecId 0
+               OpDecorate %6 SpecId 1
+               OpDecorate %7 SpecId 2
+       %uint = OpTypeInt 32 0
+     %v3uint = OpTypeVector %uint 3
+%_ptr_Input_v3uint = OpTypePointer Input %v3uint
+          %5 = OpSpecConstant %uint 1
+          %6 = OpSpecConstant %uint 1
+          %7 = OpSpecConstant %uint 1
+%gl_WorkGroupSize = OpSpecConstantComposite %v3uint %5 %6 %7
+%_ptr_Private_v3uint = OpTypePointer Private %v3uint
+      %float = OpTypeFloat 32
+%_runtimearr_float = OpTypeRuntimeArray %float
+ %_struct_13 = OpTypeStruct %_runtimearr_float
+%_ptr_StorageBuffer__struct_13 = OpTypePointer StorageBuffer %_struct_13
+       %void = OpTypeVoid
+         %18 = OpTypeFunction %void
+%_ptr_Input_uint = OpTypePointer Input %uint
+     %uint_0 = OpConstant %uint 0
+%_ptr_StorageBuffer_float = OpTypePointer StorageBuffer %float
+     %uint_2 = OpConstant %uint 2
+     %uint_1 = OpConstant %uint 1
+%gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
+         %10 = OpVariable %_ptr_Private_v3uint Private %gl_WorkGroupSize
+         %15 = OpVariable %_ptr_StorageBuffer__struct_13 StorageBuffer
+         %16 = OpVariable %_ptr_StorageBuffer__struct_13 StorageBuffer
+         
+         ; This is the very beginning of the function
+         
+         %19 = OpFunction %void None %18
+         %20 = OpLabel
+         %23 = OpAccessChain %_ptr_Input_uint %gl_GlobalInvocationID %uint_0
+         %24 = OpLoad %uint %23 Aligned 16
+         %26 = OpAccessChain %_ptr_StorageBuffer_float %15 %uint_0 %24
+         %27 = OpLoad %float %26 Aligned 4
+         %28 = OpFMul %float %27 %27
+         %29 = OpAccessChain %_ptr_StorageBuffer_float %16 %uint_0 %24
+               OpStore %29 %28 Aligned 4
+               OpReturn
+               OpFunctionEnd
