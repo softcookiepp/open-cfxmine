@@ -26,7 +26,7 @@ class VulkanDagManager {
 		uint64_t dLightAddr;
 		uint32_t dLightSize;
 		
-		hash32_t dHeader;
+		octopus_h256_t dHeader;
 		octopus_h256_t dBoundary;
 		
 #if 1
@@ -256,13 +256,19 @@ void OctopusVulkanMiner::ThreadContext::InitPerEpoch(uint64_t blockHeight) {
 void OctopusVulkanMiner::ThreadContext::InitPerHeader(
     const octopus_h256_t headerHash, const octopus_h256_t boundary) {
 #if 1
-	dagManager->refPushConsts().dHeader = headerHash.b;
+	dagManager->refPushConsts().dHeader = headerHash;
 #else
   checkCudaErrors(
       cudaMemcpyToSymbol(d_header, headerHash.b, sizeof(headerHash)));
 #endif
 	{
+#if 1
+		// we can just ref it, and it will be all goodies
+		octopus_h256_t& h256 = dagManager->refPushConsts().dBoundary;
+		uint64_t* buffer = (uint64_t*)(&h256.b);
+#else
 		uint64_t buffer[4];
+#endif
 		for (int i = 0; i < 4; ++i)
 		{
 			const uint64_t b = reinterpret_cast<const uint64_t *>(boundary.b)[i];
@@ -276,9 +282,7 @@ void OctopusVulkanMiner::ThreadContext::InitPerHeader(
 			((b & 0x00000000000000ffULL) << 56);
 		}
 #if 1
-		// maybe I should move the push constants somewhere else?
-		// oh well
-		dagManager->refPushConsts().dBoundary = reinterpret_cast<octopus_h256_t>(buffer);
+		// nothing!
 #else
 		checkCudaErrors(cudaMemcpyToSymbol(d_boundary, buffer, sizeof(boundary)));
 #endif
@@ -290,10 +294,8 @@ void OctopusVulkanMiner::ThreadContext::InitPerHeader(
 	const u32 w = p.w;
 	Precomputation<OCTOPUS_N> pre(a, b, c, w);
 #if 1
-	if (mMiner.lock()->dX == nullptr)
-	{
-		dX = mDevice->allocateBuffer(sizeof(uint32_t) * OCTOPUS_N);
-	}
+	if (dX == nullptr) dX = mDevice->allocateBuffer(sizeof(uint32_t) * OCTOPUS_N);
+	dX->copyIn(pre.x, sizeof(uint32_t) * OCTOPUS_N);
 	dagManager->refPushConsts().dXAddr = dX->getAddress();
 #else
 	checkCudaErrors(cudaMemcpyToSymbol(d_x, pre.x, sizeof(uint32_t) * OCTOPUS_N));
@@ -314,45 +316,48 @@ void OctopusVulkanMiner::Work(ThreadContext *ctx) {
 	octopus_h256_t boundary;
 	uint64_t nonce = ctx->context_id * batchSize;
 
-  while (is_running.load(std::memory_order_acquire)) {
-    if (workJobId == MINER_NO_WORK) {
-      boost::this_thread::sleep_for(boost::chrono::milliseconds(5000));
-      continue;
-    }
-    if (0 != memcmp(headerHash.b, workHeaderHash.b, sizeof(headerHash))) {
-      jobId = workJobId;
-      headerHashString = workHeaderHashString;
-      if (octopus_get_epoch(blockHeight) !=
-          octopus_get_epoch(workBlockHeight)) {
-        ctx->InitPerEpoch(workBlockHeight);
-        blockHeight = workBlockHeight;
-      }
-      ctx->InitPerHeader(workHeaderHash, workBoundary);
-      memcpy(headerHash.b, workHeaderHash.b, sizeof(headerHash));
-      memcpy(boundary.b, workBoundary.b, sizeof(boundary));
-      nonce = ctx->context_id * batchSize;
-    }
+	while (is_running.load(std::memory_order_acquire))
+	{
+		if (workJobId == MINER_NO_WORK)
+		{
+			boost::this_thread::sleep_for(boost::chrono::milliseconds(5000));
+			continue;
+		}
+		if (0 != memcmp(headerHash.b, workHeaderHash.b, sizeof(headerHash)))
+		{
+			jobId = workJobId;
+			headerHashString = workHeaderHashString;
+			if (octopus_get_epoch(blockHeight) != octopus_get_epoch(workBlockHeight))
+			{
+				ctx->InitPerEpoch(workBlockHeight);
+				blockHeight = workBlockHeight;
+			}
+			ctx->InitPerHeader(workHeaderHash, workBoundary);
+			memcpy(headerHash.b, workHeaderHash.b, sizeof(headerHash));
+			memcpy(boundary.b, workBoundary.b, sizeof(boundary));
+			nonce = ctx->context_id * batchSize;
+		}
 
-    volatile SearchResults &search_results =
-        *reinterpret_cast<SearchResults *>(ctx->d_search_results);
-    search_results.count = 0;
-    Compute<<<settings.searchGridSize, SEARCH_BLOCK_SIZE>>>(
-        nonce, reinterpret_cast<SearchResults *>(ctx->d_search_results));
-    checkCudaErrors(cudaDeviceSynchronize());
+		volatile SearchResults &search_results =
+			*reinterpret_cast<SearchResults *>(ctx->d_search_results);
+		search_results.count = 0;
+		Compute<<<settings.searchGridSize, SEARCH_BLOCK_SIZE>>>(
+			nonce, reinterpret_cast<SearchResults *>(ctx->d_search_results));
+		checkCudaErrors(cudaDeviceSynchronize());
 
-    uint32_t found_count =
-        std::min((uint32_t)search_results.count, MAX_SEARCH_RESULTS);
-    for (uint32_t i = 0; i < found_count; i++) {
-      uint64_t found_nonce = nonce + search_results.result[i].nonce_offset;
-      std::vector<std::string> solutions;
-      solutions.push_back(jobId);
-      solutions.push_back("0x" + hex::to_hex_string(found_nonce));
-      solutions.push_back(headerHashString);
-      client->OnSolutionFound(solutions);
-    }
-    client->UpdateHashRate(batchSize);
-    nonce += batchSize * device_ids.size();
-  }
+		uint32_t found_count =
+			std::min((uint32_t)search_results.count, MAX_SEARCH_RESULTS);
+		for (uint32_t i = 0; i < found_count; i++) {
+		  uint64_t found_nonce = nonce + search_results.result[i].nonce_offset;
+		  std::vector<std::string> solutions;
+		  solutions.push_back(jobId);
+		  solutions.push_back("0x" + hex::to_hex_string(found_nonce));
+		  solutions.push_back(headerHashString);
+		  client->OnSolutionFound(solutions);
+		}
+		client->UpdateHashRate(batchSize);
+		nonce += batchSize * device_ids.size();
+	}
 
   checkCudaErrors(cudaDeviceSynchronize());
   ctx->dagManager->FreeVulkan();
