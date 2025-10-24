@@ -11,7 +11,7 @@
 #include "octopus_params.h"
 
 // global instance used for the entire application
-extern tart::Instance gTartInstance();
+extern tart::Instance gTartInstance;
 
 class StratumClient;
 
@@ -27,16 +27,23 @@ class OctopusVulkanMiner : public AbstractMiner, std::enable_shared_from_this<Oc
 {
 protected:
   struct ThreadContext {
-    OctopusVulkanMiner *miner;
+
+	std::weak_ptr<OctopusVulkanMiner> mMiner;
+	tart::device_ptr mDevice = nullptr;
+	tart::buffer_ptr dX = nullptr;
+
     int device_id;
     int context_id;
 	
 	// doing shared instead of unique for now because of incomplete type
     std::shared_ptr<VulkanDagManager> dagManager = nullptr;
 
+#if 1
+	tart::buffer_ptr d_search_results = nullptr;
+#else
     void *d_search_results;
-
-    ThreadContext(OctopusVulkanMiner *miner, int device_id, int context_id);
+#endif
+    ThreadContext(std::weak_ptr<OctopusVulkanMiner> miner, int device_id, int context_id);
 
     void InitVulkan();
     void InitPerEpoch(uint64_t blockHeight);
@@ -64,5 +71,5 @@ private:
 
 protected:
   std::vector<int> device_ids;
-  std::vector<ThreadContext> threadContexts;
+  std::vector<ThreadContext> mThreadContexts;
 };
